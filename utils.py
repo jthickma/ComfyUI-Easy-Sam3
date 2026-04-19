@@ -10,6 +10,26 @@ from PIL import Image
 from typing import List, Union, Optional
 
 
+def _binary_dilation_numpy(mask: np.ndarray, iterations: int = 1) -> np.ndarray:
+    mask = mask.astype(bool)
+    if iterations <= 0:
+        return mask
+    for _ in range(iterations):
+        padded = np.pad(mask, 1, mode="constant", constant_values=False)
+        mask = (
+            padded[:-2, :-2]
+            | padded[:-2, 1:-1]
+            | padded[:-2, 2:]
+            | padded[1:-1, :-2]
+            | padded[1:-1, 1:-1]
+            | padded[1:-1, 2:]
+            | padded[2:, :-2]
+            | padded[2:, 1:-1]
+            | padded[2:, 2:]
+        )
+    return mask
+
+
 def tensor_to_pil(images: torch.Tensor) -> List[Image.Image]:
     """
     Convert tensor images to PIL Images.
@@ -158,7 +178,12 @@ def draw_visualize_image(image, masks, scores=None, bboxs=None, alpha=0.5, strok
         masks_np = masks
 
     from PIL import ImageDraw, ImageFont
-    from scipy import ndimage
+    try:
+        from scipy import ndimage
+        has_ndimage = True
+    except Exception:
+        ndimage = None
+        has_ndimage = False
     try:
         font = ImageFont.load_default().font_variant(size=font_size)
     except:
@@ -195,7 +220,10 @@ def draw_visualize_image(image, masks, scores=None, bboxs=None, alpha=0.5, strok
         # Create thick stroke using morphological operations
         binary_mask = (mask > 0.5).astype(np.uint8)
         # Dilate to get outer boundary (thick stroke with configurable width)
-        dilated = ndimage.binary_dilation(binary_mask, iterations=stroke_width).astype(np.float32)
+        if has_ndimage:
+            dilated = ndimage.binary_dilation(binary_mask, iterations=stroke_width).astype(np.float32)
+        else:
+            dilated = _binary_dilation_numpy(binary_mask, iterations=stroke_width).astype(np.float32)
         # Stroke is the difference between dilated and original
         stroke_mask = dilated - binary_mask
 

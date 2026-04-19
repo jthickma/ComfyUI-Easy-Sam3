@@ -12,12 +12,27 @@ import uuid
 from contextlib import closing
 from typing import List, Optional
 
-import psutil
+try:
+    import psutil
+    HAS_PSUTIL = True
+except Exception:
+    psutil = None
+    HAS_PSUTIL = False
 import torch
 
 # Adapted imports for vendored version
 import logging
 logger = logging.getLogger(__name__)
+
+
+def _pid_exists(pid: int) -> bool:
+    if HAS_PSUTIL:
+        return psutil.pid_exists(pid)
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
 
 
 class Sam3VideoPredictor:
@@ -498,7 +513,7 @@ class Sam3VideoPredictorMultiGPU(Sam3VideoPredictor):
                 # the main process using SIGKILL and thereby leaving no chance for the main process
                 # to clean up its daemon child processes. So here we manually check whether the
                 # parent process still exists (every 5 sec as in `command_queue.get` timeout).
-                if not psutil.pid_exists(parent_pid):
+                if not _pid_exists(parent_pid):
                     logger.info(
                         f"stopping worker {rank=} as its parent process has exited"
                     )

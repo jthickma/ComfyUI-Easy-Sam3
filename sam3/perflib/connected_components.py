@@ -1,6 +1,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 import logging
 
+import numpy as np
 import torch
 
 try:
@@ -15,12 +16,46 @@ except ImportError:
     HAS_CC_TORCH = False
 
 
+def _label_connected_components_numpy(values: np.ndarray):
+    values = values.astype(bool)
+    height, width = values.shape
+    labels = np.zeros((height, width), dtype=np.int32)
+    current = 0
+    for y in range(height):
+        for x in range(width):
+            if not values[y, x] or labels[y, x] != 0:
+                continue
+            current += 1
+            stack = [(y, x)]
+            labels[y, x] = current
+            while stack:
+                cy, cx = stack.pop()
+                if cy > 0 and values[cy - 1, cx] and labels[cy - 1, cx] == 0:
+                    labels[cy - 1, cx] = current
+                    stack.append((cy - 1, cx))
+                if cy + 1 < height and values[cy + 1, cx] and labels[cy + 1, cx] == 0:
+                    labels[cy + 1, cx] = current
+                    stack.append((cy + 1, cx))
+                if cx > 0 and values[cy, cx - 1] and labels[cy, cx - 1] == 0:
+                    labels[cy, cx - 1] = current
+                    stack.append((cy, cx - 1))
+                if cx + 1 < width and values[cy, cx + 1] and labels[cy, cx + 1] == 0:
+                    labels[cy, cx + 1] = current
+                    stack.append((cy, cx + 1))
+    return labels, current
+
+
 def connected_components_cpu_single(values: torch.Tensor):
     assert values.dim() == 2
-    from skimage.measure import label
+    values_np = values.cpu().numpy()
+    try:
+        from skimage.measure import label as sk_label
 
-    labels, num = label(values.cpu().numpy(), return_num=True)
-    labels = torch.from_numpy(labels)
+        labels_np, num = sk_label(values_np, return_num=True)
+    except Exception:
+        labels_np, num = _label_connected_components_numpy(values_np)
+
+    labels = torch.from_numpy(labels_np)
     counts = torch.zeros_like(labels)
     for i in range(1, num + 1):
         cur_mask = labels == i

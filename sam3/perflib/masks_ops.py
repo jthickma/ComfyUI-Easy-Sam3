@@ -1,6 +1,22 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
+import numpy as np
 import torch
-from pycocotools import mask as mask_util
+
+try:
+    from pycocotools import mask as mask_util
+    HAS_PYCOCOTOOLS = True
+except Exception:
+    mask_util = None
+    HAS_PYCOCOTOOLS = False
+
+
+def _rle_encode_numpy(mask: np.ndarray) -> list[int]:
+    """Return COCO-style uncompressed RLE counts for a 2D mask (Fortran order)."""
+    pixels = mask.astype(np.uint8).T.flatten()
+    pixels = np.concatenate([[0], pixels, [0]])
+    runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
+    runs[1::2] -= runs[::2]
+    return runs.tolist()
 
 def masks_to_boxes(masks: torch.Tensor, obj_ids: list[int]):
     with torch.autograd.profiler.record_function("perflib: masks_to_boxes"):
@@ -87,6 +103,17 @@ def rle_encode(orig_mask, return_areas=False):
 
     if orig_mask.numel() == 0:
         return []
+
+    if not HAS_PYCOCOTOOLS:
+        mask_np = orig_mask.detach().cpu().numpy().astype(np.uint8)
+        batch_rles = []
+        for i in range(mask_np.shape[0]):
+            counts = _rle_encode_numpy(mask_np[i])
+            rle = {"counts": counts, "size": [int(mask_np.shape[1]), int(mask_np.shape[2])]}
+            if return_areas:
+                rle["area"] = int(mask_np[i].sum())
+            batch_rles.append(rle)
+        return batch_rles
 
     # First, transpose the spatial dimensions.
     # This is necessary because the COCO API uses Fortran order

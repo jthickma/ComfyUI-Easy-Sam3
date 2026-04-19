@@ -1,5 +1,12 @@
 from .nodes import *
-from typing_extensions import override
+try:
+    from typing import override
+except Exception:
+    try:
+        from typing_extensions import override
+    except Exception:
+        def override(func):
+            return func
 
 class Sam3Extension(ComfyExtension):
     @override
