@@ -23,7 +23,7 @@ except ImportError:
     mask_utils = None
 
 
-def _require_pycocotools():
+def _ensure_pycocotools_available():
     if mask_utils is None:
         raise ImportError(
             "pycocotools is required for this visualization utility. "
@@ -536,7 +536,7 @@ def convert_coco_to_masklet_format(
     """
     Convert COCO format annotations to format expected by render_masklet_frame
     """
-    _require_pycocotools()
+    _ensure_pycocotools_available()
     outputs = {
         "out_boxes_xywh": [],
         "out_probs": [],
@@ -706,7 +706,7 @@ def get_media_dir(media_dir: str, dataset: str):
 def get_all_annotations_for_frame(
     dataset_df: pd.DataFrame, video_id: int, frame_idx: int, data_dir: str, dataset: str
 ):
-    _require_pycocotools()
+    _ensure_pycocotools_available()
     media_dir = os.path.join(data_dir, "media")
 
     # Load the annotation and video data
