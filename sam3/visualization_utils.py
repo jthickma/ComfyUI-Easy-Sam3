@@ -9,7 +9,6 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pycocotools.mask as mask_utils
 import torch
 from matplotlib.colors import to_rgb
 from PIL import Image
@@ -17,6 +16,19 @@ from skimage.color import lab2rgb, rgb2lab
 from sklearn.cluster import KMeans
 from torchvision.ops import masks_to_boxes
 from tqdm import tqdm
+
+try:
+    import pycocotools.mask as mask_utils
+except Exception:
+    mask_utils = None
+
+
+def _require_pycocotools():
+    if mask_utils is None:
+        raise ImportError(
+            "pycocotools is required for this visualization utility. "
+            "Install pycocotools or run on a Python version where it is available."
+        )
 
 
 def generate_colors(n_colors=256, n_samples=5000):
@@ -530,6 +542,7 @@ def convert_coco_to_masklet_format(
         "out_obj_ids": [],
         "out_binary_masks": [],
     }
+    _require_pycocotools()
 
     img_h, img_w = img_info["height"], img_info["width"]
 
@@ -693,6 +706,7 @@ def get_media_dir(media_dir: str, dataset: str):
 def get_all_annotations_for_frame(
     dataset_df: pd.DataFrame, video_id: int, frame_idx: int, data_dir: str, dataset: str
 ):
+    _require_pycocotools()
     media_dir = os.path.join(data_dir, "media")
 
     # Load the annotation and video data
