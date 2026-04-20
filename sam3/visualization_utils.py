@@ -536,13 +536,13 @@ def convert_coco_to_masklet_format(
     """
     Convert COCO format annotations to format expected by render_masklet_frame
     """
+    _require_pycocotools()
     outputs = {
         "out_boxes_xywh": [],
         "out_probs": [],
         "out_obj_ids": [],
         "out_binary_masks": [],
     }
-    _require_pycocotools()
 
     img_h, img_w = img_info["height"], img_info["width"]
 
