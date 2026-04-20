@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 try:
     import pycocotools.mask as mask_utils
-except Exception:
+except ImportError:
     mask_utils = None
 
 
